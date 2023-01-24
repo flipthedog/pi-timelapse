@@ -1,3 +1,8 @@
+virtual/
+timelapse/
+timetest.py
+TODO
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
