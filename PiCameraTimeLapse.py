@@ -1,6 +1,10 @@
 import cv2 as cv
 import numpy as np
 
+import sys
+
+sys.path.append('/usr/lib/python3/dist-packages')
+
 import os
 import time
 
@@ -23,8 +27,10 @@ class PiTimeLapse:
     def __init__(self, project_name, interval=300, length_of_timelapse="", resolution=(1920, 1080), file_type="jpeg", \
          local_save_directory=None, save_to_s3=False, s3_bucket_location="") -> None:
         
+        print("Starting the timelapse")
+        
         self.storage = ""
-        self.current_cwd = os.getcwd()
+        self.current_cwd = "/home/pi/Projects/pi-timelapse"
 
         self.project_name = project_name
 
@@ -54,7 +60,11 @@ class PiTimeLapse:
         self.camera = PiCamera()
         self.camera.resolution = resolution
 
-        self.s3_client = boto3.client('s3')
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=self.aws_config["aws_access_key_id"],
+            aws_secret_access_key=self.aws_config["aws_secret_access_key"]
+            )
 
         if not os.path.exists(self.save_path):
             
@@ -65,6 +75,8 @@ class PiTimeLapse:
 
     def take_picture(self):
         
+        self.stream = BytesIO()
+
         current_epoch = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         printable_epoch = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -127,4 +139,4 @@ class RepeatTimer(Timer):
 
 if __name__ == '__main__':
 
-    picamera_timelapse = PiTimeLapse("first_test")
+    picamera_timelapse = PiTimeLapse("greenhouse_test")

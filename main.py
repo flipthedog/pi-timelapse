@@ -1,1 +1,0 @@
-from PiCameraTimeLapse import PiTimeLapse
