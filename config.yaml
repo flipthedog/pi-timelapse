@@ -1,0 +1,14 @@
+# tine
+project_name: !!str "first-timelapse"
+interval: !!int 300
+number: !!int -1
+log: !!str "timelapse_log"
+
+# image configuration
+resolution: 
+  width: !!int 1920
+  height: !!int 1080
+file_type: !!str ".jpeg"
+
+local: !!bool true
+local_save_location: !!str 

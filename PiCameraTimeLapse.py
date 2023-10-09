@@ -3,6 +3,7 @@ import numpy as np
 
 import sys
 
+# To load picamera
 sys.path.append('/usr/lib/python3/dist-packages')
 
 import os
@@ -11,11 +12,10 @@ import time
 from datetime import datetime
 from threading import Timer
 
-from picamera import PiCamera
-
-import yaml
+from picamera2 import Picamera2
 
 import boto3
+
 from botocore.exceptions import ClientError
 
 from io import BytesIO
@@ -34,10 +34,6 @@ class PiTimeLapse:
 
         self.project_name = project_name
 
-        with open(self.current_cwd + "/aws_details.conf", mode="rt", encoding="utf-8") as file:
-            self.aws_config = yaml.safe_load(file)
-
-        # print(self.aws_config)
         if local_save_directory is not None:
             self.local_save_directory = local_save_directory
         else: 
@@ -57,14 +53,12 @@ class PiTimeLapse:
         self.PIL_image = None
         self.cv_image = None
 
-        self.camera = PiCamera()
+        self.camera = Picamera2()
         self.camera.resolution = resolution
 
         self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=self.aws_config["aws_access_key_id"],
-            aws_secret_access_key=self.aws_config["aws_secret_access_key"]
-            )
+            's3'
+        )
 
         if not os.path.exists(self.save_path):
             
@@ -139,4 +133,4 @@ class RepeatTimer(Timer):
 
 if __name__ == '__main__':
 
-    picamera_timelapse = PiTimeLapse("greenhouse_test")
+    picamera_timelapse = PiTimeLapse("first_test")

@@ -6,7 +6,6 @@ Right now this uses picamera, and not picamera2
 # Installation
 1. To install ...
 
-
 # Commands
 1. Run as ...
 

@@ -1,9 +1,10 @@
 virtual/
 timelapse/
-timetest.py
 TODO
 *.conf
 *camera.py
+
+
 *.jpg
 *.jpeg
 *.png
