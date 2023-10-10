@@ -7,30 +7,30 @@ import sys
 sys.path.append('/usr/lib/python3/dist-packages')
 
 import os
-import time
 
+import time
 from datetime import datetime
 from threading import Timer
 
 from picamera2 import Picamera2
 
 import boto3
-
 from botocore.exceptions import ClientError
 
 from io import BytesIO
-
 from PIL import Image
+
+import yaml
 
 class PiTimeLapse:
 
-    def __init__(self, project_name, interval=300, length_of_timelapse="", resolution=(1920, 1080), file_type="jpeg", \
+    def __init__(self, project_name, interval=10, length_of_timelapse="", resolution=(1920, 1080), file_type="jpeg", \
          local_save_directory=None, save_to_s3=False, s3_bucket_location="") -> None:
         
         print("Starting the timelapse")
         
         self.storage = ""
-        self.current_cwd = "/home/pi/Projects/pi-timelapse"
+        self.current_cwd = os.getcwd()
 
         self.project_name = project_name
 
@@ -39,12 +39,16 @@ class PiTimeLapse:
         else: 
             self.local_save_directory = self.current_cwd
 
+        with open("aws_details.conf", "r") as file:
+            self.aws_config = yaml.safe_load(file)
+
         self.save_path = self.local_save_directory + "/timelapse/" + self.project_name
 
         self.interval = interval # interval in seconds
         self.length_time = 0 # total length that the timelapse will be, in hours
 
         self.number_of_pictures = (self.length_time * 60 * 60) / self.interval
+        
         self.pictures_taken = 0
 
         self.file_type = file_type
@@ -54,15 +58,20 @@ class PiTimeLapse:
         self.cv_image = None
 
         self.camera = Picamera2()
-        self.camera.resolution = resolution
-
+        
+        self.camera_config = self.camera.create_still_configuration(
+            main={"size": resolution}
+        )
+        
+        self.camera.configure(self.camera_config)
+        
         self.s3_client = boto3.client(
             's3'
         )
 
-        if not os.path.exists(self.save_path):
+        if not os.path.exists(self.project_name):
             
-            os.makedirs(self.save_path)
+            os.makedirs(self.project_name)
 
         self.t = RepeatTimer(self.interval, self.take_picture)
         self.t.start()
@@ -75,16 +84,18 @@ class PiTimeLapse:
 
         printable_epoch = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
-        self.camera.start_preview()
+        self.camera.start()
         
         time.sleep(2)
 
         file_name = self.project_name + "_" + str(current_epoch) + "." + str(self.file_type)
         file_path = self.save_path + '/' + file_name
 
-        self.camera.capture(self.stream, format=self.file_type)
+        self.camera.capture_file(self.stream, format=self.file_type)
         # self.camera.capture(file_path)
         
+        self.camera.stop()
+
         self.stream.seek(0)
 
         self.PIL_image = Image.open(self.stream).convert('RGB')
@@ -101,7 +112,7 @@ class PiTimeLapse:
 
         print("Took a picture at: ", str(datetime.now()) , " saved to: ", file_path)
 
-        self.upload_to_s3(None, file_path=file_path, file_name=file_name)
+        self.upload_to_s3(None, file_path=file_path, file_name=self.project_name + "/" + file_name)
 
         self.pictures_taken += 1
 
@@ -111,6 +122,7 @@ class PiTimeLapse:
         
         if file_path is not None:
             try:
+                print(self.aws_config['s3_bucket'])
                 # self.s3_client.upload_file(file_path, self.aws_config['s3_bucket'], file_name)
                 self.s3_client.put_object(
                     Body=b_image,
@@ -124,6 +136,7 @@ class PiTimeLapse:
 
     def __exit__(self):
         print("Exiting...")
+        self.camera.stop()
         self.t.cancel()
 
 class RepeatTimer(Timer):
@@ -133,4 +146,4 @@ class RepeatTimer(Timer):
 
 if __name__ == '__main__':
 
-    picamera_timelapse = PiTimeLapse("first_test")
+    picamera_timelapse = PiTimeLapse("second_test")

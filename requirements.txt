@@ -1,3 +1,5 @@
 opencv-python
 boto3
 botocore
+Pillow
+pyyaml

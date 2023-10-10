@@ -1,4 +1,4 @@
-# tine
+# time
 project_name: !!str "first-timelapse"
 interval: !!int 300
 number: !!int -1

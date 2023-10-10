@@ -79,8 +79,6 @@ else:
     
     if config['interval'] is not None:
         interval = config['interval']
-    
-    if config['']
 
 timelapse = PiTimeLapse(
     project_name=project_name,
