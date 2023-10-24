@@ -1,4 +1,4 @@
-import cv2 as cv
+# import cv2 as cv
 import numpy as np
 
 import sys
@@ -7,6 +7,7 @@ import sys
 sys.path.append('/usr/lib/python3/dist-packages')
 
 import os
+import io
 
 import time
 from datetime import datetime
@@ -22,24 +23,28 @@ from PIL import Image
 
 import yaml
 
+import libcamera
+
 class PiTimeLapse:
 
-    def __init__(self, project_name, interval=10, length_of_timelapse="", resolution=(1920, 1080), file_type="jpeg", \
-         local_save_directory=None, save_to_s3=False, s3_bucket_location="") -> None:
+    def __init__(self, project_name, interval=300, length_of_timelapse="", resolution=(1920, 1080), file_type="jpeg", \
+         local_save_directory=None, save_to_s3=False, s3_bucket_location="", night_mode=True, exposure_time=10000000) -> None:
         
         print("Starting the timelapse")
         
+        self.today_date = datetime.now().strftime("%Y_%m_%d")
+
         self.storage = ""
         self.current_cwd = os.getcwd()
 
-        self.project_name = project_name
+        self.project_name = project_name + "_" + self.today_date
 
         if local_save_directory is not None:
             self.local_save_directory = local_save_directory
         else: 
             self.local_save_directory = self.current_cwd
 
-        with open("aws_details.conf", "r") as file:
+        with open("/home/pi/Projects/pi-timelapse/aws_details.conf", "r") as file:
             self.aws_config = yaml.safe_load(file)
 
         self.save_path = self.local_save_directory + "/timelapse/" + self.project_name
@@ -47,7 +52,7 @@ class PiTimeLapse:
         self.interval = interval # interval in seconds
         self.length_time = 0 # total length that the timelapse will be, in hours
 
-        self.number_of_pictures = (self.length_time * 60 * 60) / self.interval
+        self.number_of_pictures = 120
         
         self.pictures_taken = 0
 
@@ -60,18 +65,27 @@ class PiTimeLapse:
         self.camera = Picamera2()
         
         self.camera_config = self.camera.create_still_configuration(
-            main={"size": resolution}
-        )
-        
-        self.camera.configure(self.camera_config)
-        
-        self.s3_client = boto3.client(
-            's3'
+            main={"size": (2560, 1440)}, 
+            transform=libcamera.Transform(vflip=1, hflip=1)
         )
 
-        if not os.path.exists(self.project_name):
+        self.camera.configure(self.camera_config)
+        
+        if night_mode:
+            self.camera.set_controls({
+                "ExposureTime":exposure_time,
+                "AnalogueGain": 1.0
+            })
+
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=self.aws_config['aws_access_key_id'],
+            aws_secret_access_key=self.aws_config['aws_secret_access_key']
+        )
+
+        # if not os.path.exists(self.project_name):
             
-            os.makedirs(self.project_name)
+        #     os.makedirs(self.project_name)
 
         self.t = RepeatTimer(self.interval, self.take_picture)
         self.t.start()
@@ -92,23 +106,12 @@ class PiTimeLapse:
         file_path = self.save_path + '/' + file_name
 
         self.camera.capture_file(self.stream, format=self.file_type)
-        # self.camera.capture(file_path)
         
         self.camera.stop()
 
         self.stream.seek(0)
 
         self.PIL_image = Image.open(self.stream).convert('RGB')
-        self.cv_image = np.array(self.PIL_image)
-        self.cv_image = self.cv_image[:, :, ::-1].copy()
-
-        size = self.cv_image.shape
-
-        self.cv_image = cv.putText(self.cv_image, org=(0,size[0]-20), fontFace=0, text=str(current_epoch), \
-                        fontScale=1, color=(0,255,0), thickness=2)
-        
-        # print(file_path)
-        # cv.imwrite(file_path, self.cv_image)
 
         print("Took a picture at: ", str(datetime.now()) , " saved to: ", file_path)
 
@@ -116,9 +119,18 @@ class PiTimeLapse:
 
         self.pictures_taken += 1
 
+        if self.pictures_taken > self.number_of_pictures:
+            print("Ending timelapse: " + str(datetime.now()))
+            self.__exit__()
+
+
     def upload_to_s3(self, object, file_path, file_name):
-        
-        b_image = cv.imencode('.jpeg', self.cv_image)[1].tobytes()
+
+        img_bytes = io.BytesIO()
+
+        self.PIL_image.save(img_bytes, format="JPEG")
+
+        b_image = img_bytes.getvalue()
         
         if file_path is not None:
             try:
@@ -146,4 +158,4 @@ class RepeatTimer(Timer):
 
 if __name__ == '__main__':
 
-    picamera_timelapse = PiTimeLapse("second_test")
+    picamera_timelapse = PiTimeLapse("night_timelapse")

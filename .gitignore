@@ -3,7 +3,8 @@ timelapse/
 TODO
 *.conf
 *camera.py
-
+notes
+*log_file
 
 *.jpg
 *.jpeg
