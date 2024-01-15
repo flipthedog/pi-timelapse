@@ -54,6 +54,9 @@ For example: To run a python virtual environment timelapse.py at reboot, called 
 @reboot /home/pi/Projects/pi-timelapse/venv/bin/python3 /home/pi/Projects/pi-timelapse/timelapse.py first_project
 ```
 
+# Example
+![](output2.gif)
+
 # Contribution
 1. To contribute open a pull request to ```dev```
 2. Or create an issue if you would like something developed
