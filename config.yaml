@@ -1,7 +1,7 @@
 # time
-project_name: !!str "first-timelapse"
-interval: !!int 20
-number: !!int -1
+project_name: !!str "timelapse-january-2024-front"
+interval: !!int 300
+number_of_images: !!int -1
 
 # image configuration
 resolution: 
@@ -10,13 +10,13 @@ resolution:
 file_type: !!str "jpeg"
 
 # where to save images
-local: !!bool True
+save_local: !!bool False
 local_save_location: !!str ""
 
-save_to_s3: !!bool False
-s3_bucket_name: !!str ""
+save_to_s3: !!bool True
+s3_bucket_name: !!str "ginkgo-house-timelapse"
 s3_path: !!str ""
 
 # other
-night_mode: !!bool false
+night_mode: !!bool False
 exposure_time: !!int 10000000

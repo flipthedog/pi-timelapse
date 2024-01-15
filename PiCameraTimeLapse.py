@@ -27,7 +27,7 @@ import libcamera
 
 class PiTimeLapse:
 
-    def __init__(self, project_name, interval=300, number_of_images=-1, resolution=(1920, 1080), file_type="jpeg", \
+    def __init__(self, project_name, interval=300, number_of_images=-1, resolution=(1920, 1080), file_type="jpeg", save_local=False, \
         local_save_directory=None, save_to_s3=False, s3_bucket_name="", s3_path="", night_mode=True, exposure_time=10000000) -> None:
         """Create a timelapse
 
@@ -52,25 +52,30 @@ class PiTimeLapse:
         self.storage = ""
         self.current_cwd = os.getcwd()
 
-        self.project_name = project_name + "_" + self.today_date
+        self.project_name = project_name
 
-        if local_save_directory is not None:
+        print(f"Project Name: {self.project_name}")
+        
+        self.save_local = save_local
+        
+        if self.save_local:
             self.local_save_directory = local_save_directory
         else: 
-            self.local_save_directory = None
+            self.local_save_directory = ""
 
         self.save_to_s3 = save_to_s3
+
         if save_to_s3:
             self.s3_bucket_name = s3_bucket_name
             self.s3_path = s3_path
-        
-        # with open("/home/pi/Projects/pi-timelapse/aws_details.conf", "r") as file:
-        #     self.aws_config = yaml.safe_load(file)
 
         self.interval = interval # interval in seconds
         self.length_time = 0 # total length that the timelapse will be, in hours
 
-        self.number_of_pictures = 120
+        if number_of_images == -1:
+            self.number_of_pictures = 1e16
+        else:    
+            self.number_of_pictures = number_of_images
         
         self.pictures_taken = 0
 
@@ -95,12 +100,6 @@ class PiTimeLapse:
                 "AnalogueGain": 1.0
             })
 
-        # self.s3_client = boto3.client(
-        #     's3',
-        #     aws_access_key_id=self.aws_config['aws_access_key_id'],
-        #     aws_secret_access_key=self.aws_config['aws_secret_access_key']
-        # )
-
         self.s3_client = boto3.client(
             's3'
         )
@@ -124,7 +123,7 @@ class PiTimeLapse:
         file_path = self.local_save_directory + '/' + file_name
 
 
-        if self.local_save_directory:
+        if not self.save_to_s3:
             self.camera.capture_file(file_path, format=self.file_type)
         else:
             self.camera.capture_file(self.stream, format=self.file_type)
