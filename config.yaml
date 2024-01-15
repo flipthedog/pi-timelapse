@@ -1,14 +1,22 @@
 # time
 project_name: !!str "first-timelapse"
-interval: !!int 300
+interval: !!int 20
 number: !!int -1
-log: !!str "timelapse_log"
 
 # image configuration
 resolution: 
-  width: !!int 1920
-  height: !!int 1080
-file_type: !!str ".jpeg"
+  width: !!int 2550
+  height: !!int 1440
+file_type: !!str "jpeg"
 
-local: !!bool true
-local_save_location: !!str 
+# where to save images
+local: !!bool True
+local_save_location: !!str ""
+
+save_to_s3: !!bool False
+s3_bucket_name: !!str ""
+s3_path: !!str ""
+
+# other
+night_mode: !!bool false
+exposure_time: !!int 10000000
