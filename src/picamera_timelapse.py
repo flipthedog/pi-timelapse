@@ -1,6 +1,4 @@
 # import cv2 as cv
-import numpy as np
-
 import sys
 
 # To load picamera
@@ -8,9 +6,10 @@ sys.path.append('/usr/lib/python3/dist-packages')
 
 import os
 import io
+import requests
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Timer
 
 from picamera2 import Picamera2
@@ -25,10 +24,11 @@ import yaml
 
 import libcamera
 
+from src.conf.picamera_timelapse_conf import TimeLapseConf
+
 class PiTimeLapse:
 
-    def __init__(self, project_name, interval=300, number_of_images=-1, resolution=(1920, 1080), file_type="jpeg", save_local=False, \
-        local_save_directory=None, save_to_s3=False, s3_bucket_name="", s3_path="", night_mode=True, exposure_time=10000000) -> None:
+    def __init__(self, config: TimeLapseConf) -> None:
         """Create a timelapse
 
         Args:
@@ -44,42 +44,48 @@ class PiTimeLapse:
             exposure_time (int, optional): Total exposure time (micro seconds). Defaults to 10000000 mus.
         """
         
+        self.config = config
+
         print("Starting the timelapse")
         print(f"Time/Date: {str(datetime.now())}")
 
         self.today_date = datetime.now().strftime("%Y_%m_%d")
 
-        self.storage = ""
         self.current_cwd = os.getcwd()
 
-        self.project_name = project_name
+        self.project_name = config.project_name
 
         print(f"Project Name: {self.project_name}")
         
-        self.save_local = save_local
+        self.save_local = config.save_local
         
+        # check if the local save path exists
+        if not os.path.exists(self.current_cwd + "/" + self.project_name):
+            os.makedirs(self.current_cwd + "/" + self.project_name)
+        
+
         if self.save_local:
-            self.local_save_directory = local_save_directory
+            self.local_save_path = self.current_cwd + "/" + self.project_name + "/" + config.local_save_path
         else: 
-            self.local_save_directory = ""
+            self.local_save_path = ""
 
-        self.save_to_s3 = save_to_s3
+        self.save_to_cloud = config.save_to_cloud
 
-        if save_to_s3:
-            self.s3_bucket_name = s3_bucket_name
-            self.s3_path = s3_path
+        if config.save_to_cloud:
+            self.s3_bucket = config.s3_bucket 
+            self.s3_path = config.s3_path
 
-        self.interval = interval # interval in seconds
+        self.interval = config.interval # interval in seconds
         self.length_time = 0 # total length that the timelapse will be, in hours
 
-        if number_of_images == -1:
+        if config.number_of_images == -1:
             self.number_of_pictures = 1e16
         else:    
-            self.number_of_pictures = number_of_images
+            self.number_of_pictures = config.number_of_images
         
         self.pictures_taken = 0
 
-        self.file_type = file_type
+        self.file_type = config.file_type
 
         self.stream = BytesIO()
         self.PIL_image = None
@@ -87,28 +93,35 @@ class PiTimeLapse:
 
         self.camera = Picamera2()
         
+        self.resolution = (config.resolution.width, config.resolution.height)
+
         self.camera_config = self.camera.create_still_configuration(
-            main={"size": resolution}, 
-            transform=libcamera.Transform(vflip=0, hflip=0)
+            main={"size": self.resolution}, 
+            transform=libcamera.Transform(vflip=1, hflip=1)
         )
 
         self.camera.configure(self.camera_config)
         
-        if night_mode:
-            self.camera.set_controls({
-                "ExposureTime":exposure_time,
-                "AnalogueGain": 1.0
-            })
+        self.lat = config.latitude
+        self.long = config.longitude
 
         self.s3_client = boto3.client(
             's3'
         )
+
+        # self.take_picture()
 
         self.t = RepeatTimer(self.interval, self.take_picture)
         self.t.start()
 
     def take_picture(self):
         
+        if self.night_mode():
+            self.camera.set_controls({
+                "ExposureTime":self.config.night_mode_exposure,
+                "AnalogueGain": 1.0
+            })
+
         self.stream = BytesIO()
 
         current_epoch = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -120,22 +133,21 @@ class PiTimeLapse:
         time.sleep(2)
 
         file_name = self.project_name + "_" + str(current_epoch) + "." + str(self.file_type)
-        file_path = self.local_save_directory + '/' + file_name
-
-
-        if not self.save_to_s3:
-            self.camera.capture_file(file_path, format=self.file_type)
-        else:
-            self.camera.capture_file(self.stream, format=self.file_type)
-            self.stream.seek(0)
-            self.PIL_image = Image.open(self.stream).convert('RGB')
+        
+        self.camera.capture_file(self.stream, format=self.file_type)
+        self.stream.seek(0)
+        self.PIL_image = Image.open(self.stream).convert('RGB')
         
         self.camera.stop()
 
-        print("Took a picture at: ", str(datetime.now()) , " saved to: ", file_path)
+        
+        if self.save_local:
+            self.PIL_image.save(self.local_save_path + "/" + file_name, format=self.file_type)
+            
+        print("Took a picture at: ", str(datetime.now()) , " saved to: ", self.s3_path)
 
-        if self.save_to_s3:
-            self.upload_to_s3(None, file_path=file_path, file_name=self.project_name + "/" + file_name)
+        if self.save_to_cloud:
+            self.upload_to_s3(None, file_path=self.s3_path, file_name=self.project_name + "/" + file_name)
 
         self.pictures_taken += 1
 
@@ -154,11 +166,9 @@ class PiTimeLapse:
         
         if file_path is not None:
             try:
-                print(self.s3_bucket_name)
-                # self.s3_client.upload_file(file_path, self.aws_config['s3_bucket'], file_name)
                 self.s3_client.put_object(
                     Body=b_image,
-                    Bucket=self.s3_bucket_name,
+                    Bucket=self.s3_bucket,
                     Key=file_name
                 )
             except ClientError as e:
@@ -170,6 +180,37 @@ class PiTimeLapse:
         print("Exiting...")
         self.camera.stop()
         self.t.cancel()
+
+    def get_sunrise_sunset(self):
+
+        url = f"https://api.sunrisesunset.io/json?lat={self.lat}&lng={self.long}&time_format=24"
+
+        response = requests.get(url)
+
+        data = response.json()["results"]
+        sunrise = data["sunrise"]
+        sunset = data["sunset"]
+        first_light = data["first_light"]
+        last_light = data["last_light"]
+
+        return sunrise, sunset, first_light, last_light
+    
+    def night_mode(self):
+        """"
+        Decide whether we need to engage night mode
+        """
+
+        sunrise, sunset, first_light, last_light = self.get_sunrise_sunset()
+
+        current_time = (datetime.now()).strftime("%H:%M:%S")
+
+        if current_time > last_light or current_time < first_light:
+            print("Night mode engaged")
+            return True
+        else:
+            print("Night mode disengaged")
+            return False
+        
 
 class RepeatTimer(Timer):
     def run(self):

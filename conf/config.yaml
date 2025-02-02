@@ -1,0 +1,28 @@
+# time
+project_name: "timelapse-january-2025-front-testing"
+interval: 200
+number_of_images: -1
+
+# image configuration
+resolution: 
+  width: 2550
+  height: 1440
+file_type: "jpeg"
+
+# where to save images
+save_local: True
+local_save_path: ""
+
+save_to_cloud: True
+s3_bucket: "ginkgo-house-timelapse"
+s3_path: ""
+
+# other
+night_mode: False
+night_mode_exposure: 3000000
+
+# geo_location for sunrise and sunset times
+
+# Location - Boston
+latitude: 42.400947
+longitude: -71.116638
