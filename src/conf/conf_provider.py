@@ -13,7 +13,7 @@ class ConfProvider:
         self.conf = None
     
     def _load(self) -> TimeLapseConf:
-        with open('conf/config.yaml', "r", encoding="utf-8") as file:
+        with open('/home/pi/Projects/pi-timelapse/conf/config.yaml', "r", encoding="utf-8") as file:
             conf = yaml.safe_load(file)
 
         timelapse_conf = TimeLapseConf(**conf)

@@ -109,7 +109,7 @@ class PiTimeLapse:
             's3'
         )
 
-        # self.take_picture()
+        self.take_picture()
 
         self.t = RepeatTimer(self.interval, self.take_picture)
         self.t.start()
@@ -204,14 +204,16 @@ class PiTimeLapse:
 
         current_time = (datetime.now()).strftime("%H:%M:%S")
 
-        if current_time > last_light or current_time < first_light:
-            print("Night mode engaged")
+        if current_time < sunrise:
+            print("Night mode on") 
+            return True
+        elif current_time > last_light:
+            print("Night mode on")
             return True
         else:
-            print("Night mode disengaged")
+            print("Night mode off")
             return False
-        
-
+       
 class RepeatTimer(Timer):
     def run(self):
         while not self.finished.wait(self.interval):

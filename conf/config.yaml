@@ -1,6 +1,6 @@
 # time
-project_name: "timelapse-january-2025-front-testing"
-interval: 200
+project_name: "timelapse-january-2025-front-feb"
+interval: 1000
 number_of_images: -1
 
 # image configuration
@@ -10,7 +10,7 @@ resolution:
 file_type: "jpeg"
 
 # where to save images
-save_local: True
+save_local: False
 local_save_path: ""
 
 save_to_cloud: True
@@ -19,7 +19,7 @@ s3_path: ""
 
 # other
 night_mode: False
-night_mode_exposure: 3000000
+night_mode_exposure: 8000000
 
 # geo_location for sunrise and sunset times
 
